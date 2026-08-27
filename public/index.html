@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>套房電費管理系統</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans">
+
+  <!-- 頂部導覽欄 -->
+  <nav class="bg-blue-600 text-white shadow-lg">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex justify-between items-center">
+      <h1 class="text-xl font-bold">⚡ 套房電費管理系統</h1>
+      <div class="space-x-2">
+        <button id="tabFrontBtn" onclick="switchTab('front')" class="px-4 py-2 rounded bg-white text-blue-600 font-bold">前台檢視</button>
+        <button id="tabBackBtn" onclick="switchTab('back')" class="px-4 py-2 rounded bg-blue-700 hover:bg-blue-800">後台管理</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="max-w-6xl mx-auto px-4 py-6">
+
+    <!-- ================= 前台頁面 ================= -->
+    <div id="frontSection">
+      <!-- 概覽資訊卡 -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-blue-500">
+          <p class="text-sm text-gray-500">當前台電費率</p>
+          <p class="text-2xl font-bold text-gray-800"><span id="frontRate">0</span> 元 / 度</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-amber-500">
+          <p class="text-sm text-gray-500">總電表使用度數</p>
+          <p class="text-2xl font-bold text-gray-800"><span id="frontMainUsed">0</span> 度</p>
+        </div>
+        <div class="bg-white p-5 rounded-lg shadow border-l-4 border-emerald-500">
+          <p class="text-sm text-gray-500">套房總應繳電費額</p>
+          <p class="text-2xl font-bold text-emerald-600">$ <span id="frontTotalCost">0</span> 元</p>
+        </div>
+      </div>
+
+      <!-- 各套房卡片列表 -->
+      <h2 class="text-lg font-bold text-gray-700 mb-4">各套房電費明細</h2>
+      <div id="suiteCardsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- 卡片將由 JavaScript 動態生成 -->
+      </div>
+    </div>
+
+    <!-- ================= 後台管理頁面 ================= -->
+    <div id="backSection" class="hidden">
+      <form id="adminForm" onsubmit="handleAdminSave(event)" class="space-y-6">
+        
+        <!-- 全域設定與總電表 -->
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h2 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">1. 設定台電單價與總電表抄表</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">當前台電度數(元)</label>
+              <input type="number" step="0.1" id="inputRate" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">總電表 - 上次度數</label>
+              <input type="number" step="0.1" id="inputMainLast" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" required>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">總電表 - 本次度數</label>
+              <input type="number" step="0.1" id="inputMainCurrent" class="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- 各套房分電表 -->
+        <div class="bg-white p-6 rounded-lg shadow">
+          <h2 class="text-lg font-bold text-gray-800 border-b pb-2 mb-4">2. 各套房分電表抄表</h2>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-gray-100 border-b">
+                  <th class="p-3">套房名稱</th>
+                  <th class="p-3">上次度數</th>
+                  <th class="p-3">本次度數</th>
+                  <th class="p-3">計算使用度數</th>
+                </tr>
+              </thead>
+              <tbody id="adminTableBody">
+                <!-- 列表將由 JavaScript 動態生成 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="flex justify-end">
+          <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-3 rounded-lg shadow transition">
+            💾 儲存並更新至資料庫
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+
+  <script>
+    let globalData = null;
+
+    // 讀取資料庫最新數據
+    async function fetchData() {
+      try {
+        const res = await fetch('/api/electricity-data');
+        globalData = await res.json();
+        renderFrontView();
+        renderAdminView();
+      } catch (err) {
+        alert('無法從伺服器取得資料庫數據');
+      }
+    }
+
+    // 渲染前台視圖
+    function renderFrontView() {
+      const { taipowerRate, mainMeter, suites } = globalData;
+
+      document.getElementById('frontRate').innerText = taipowerRate;
+      const mainUsed = (mainMeter.currentDegree - mainMeter.lastDegree).toFixed(1);
+      document.getElementById('frontMainUsed').innerText = mainUsed > 0 ? mainUsed : 0;
+
+      const container = document.getElementById('suiteCardsContainer');
+      container.innerHTML = '';
+
+      let totalCost = 0;
+
+      suites.forEach(suite => {
+        const usedKwh = Math.max(0, suite.current_degree - suite.last_degree).toFixed(1);
+        const cost = Math.round(usedKwh * taipowerRate);
+        totalCost += cost;
+
+        container.innerHTML += `
+          <div class="bg-white rounded-lg shadow p-5 border border-gray-100 hover:shadow-md transition">
+            <div class="flex justify-between items-center mb-3 border-b pb-2">
+              <h3 class="text-xl font-bold text-gray-800">${suite.room_name}</h3>
+              <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">使用中</span>
+            </div>
+            <div class="space-y-2 text-sm text-gray-600 mb-4">
+              <div class="flex justify-between">
+                <span>上次度數：</span>
+                <span class="font-semibold">${suite.last_degree} 度</span>
+              </div>
+              <div class="flex justify-between">
+                <span>本次度數：</span>
+                <span class="font-semibold">${suite.current_degree} 度</span>
+              </div>
+              <div class="flex justify-between text-blue-600 font-bold border-t pt-2">
+                <span>使用度數：</span>
+                <span class="text-base">${usedKwh} 度</span>
+              </div>
+            </div>
+            <div class="bg-gray-50 p-3 rounded flex justify-between items-center">
+              <span class="text-xs font-semibold text-gray-500">應繳金額</span>
+              <span class="text-xl font-extrabold text-emerald-600">$ ${cost} 元</span>
+            </div>
+          </div>
+        `;
+      });
+
+      document.getElementById('frontTotalCost').innerText = totalCost;
+    }
+
+    // 渲染後台編輯視圖
+    function renderAdminView() {
+      const { taipowerRate, mainMeter, suites } = globalData;
+
+      document.getElementById('inputRate').value = taipowerRate;
+      document.getElementById('inputMainLast').value = mainMeter.lastDegree;
+      document.getElementById('inputMainCurrent').value = mainMeter.currentDegree;
+
+      const tbody = document.getElementById('adminTableBody');
+      tbody.innerHTML = '';
+
+      suites.forEach((suite, index) => {
+        const used = (suite.current_degree - suite.last_degree).toFixed(1);
+        tbody.innerHTML += `
+          <tr class="border-b hover:bg-gray-50">
+            <td class="p-3 font-semibold">${suite.room_name}</td>
+            <td class="p-3">
+              <input type="number" step="0.1" value="${suite.last_degree}" 
+                data-id="${suite.id}" class="suite-last border p-1 rounded w-32" required>
+            </td>
+            <td class="p-3">
+              <input type="number" step="0.1" value="${suite.current_degree}" 
+                data-id="${suite.id}" class="suite-current border p-1 rounded w-32" required>
+            </td>
+            <td class="p-3 text-gray-500 font-bold">${used > 0 ? used : 0} 度</td>
+          </tr>
+        `;
+      });
+    }
+
+    // 儲存後台資料
+    async function handleAdminSave(event) {
+      event.preventDefault();
+
+      const taipowerRate = parseFloat(document.getElementById('inputRate').value);
+      const mainMeter = {
+        lastDegree: parseFloat(document.getElementById('inputMainLast').value),
+        currentDegree: parseFloat(document.getElementById('inputMainCurrent').value)
+      };
+
+      const suites = [];
+      const lastInputs = document.querySelectorAll('.suite-last');
+      const currentInputs = document.querySelectorAll('.suite-current');
+
+      lastInputs.forEach((input, index) => {
+        suites.push({
+          id: input.dataset.id,
+          last_degree: parseFloat(input.value),
+          current_degree: parseFloat(currentInputs[index].value)
+        });
+      });
+
+      try {
+        const res = await fetch('/api/admin/update-electricity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ taipowerRate, mainMeter, suites })
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          alert('資料已成功寫入 SQLite 資料庫！');
+          await fetchData();
+          switchTab('front'); // 儲存後自動跳回前台
+        }
+      } catch (err) {
+        alert('儲存失敗，請檢查網路連線或伺服器');
+      }
+    }
+
+    // 切換前後台頁面
+    function switchTab(tab) {
+      const frontSec = document.getElementById('frontSection');
+      const backSec = document.getElementById('backSection');
+      const frontBtn = document.getElementById('tabFrontBtn');
+      const backBtn = document.getElementById('tabBackBtn');
+
+      if (tab === 'front') {
+        frontSec.classList.remove('hidden');
+        backSec.classList.add('hidden');
+        frontBtn.className = "px-4 py-2 rounded bg-white text-blue-600 font-bold";
+        backBtn.className = "px-4 py-2 rounded bg-blue-700 hover:bg-blue-800";
+      } else {
+        frontSec.classList.add('hidden');
+        backSec.classList.remove('hidden');
+        backBtn.className = "px-4 py-2 rounded bg-white text-blue-600 font-bold";
+        frontBtn.className = "px-4 py-2 rounded bg-blue-700 hover:bg-blue-800";
+      }
+    }
+
+    // 頁面載入時取得資料
+    fetchData();
+  </script>
+</body>
+</html>

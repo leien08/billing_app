@@ -1,0 +1,13 @@
+{
+  "name": "rental-electricity-system",
+  "version": "1.0.0",
+  "description": "套房電費表與後台資料庫系統",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "sqlite3": "^5.1.6"
+  }
+}
