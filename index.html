@@ -3,20 +3,25 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>套房電費管理系統</title>
+  <title>套房電費管理系統 (GitHub API 連動版)</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; background: #f8f9fa; }
     .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
     h2 { margin-top: 0; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 8px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; }
     .stat-box { background: #e9ecef; padding: 15px; border-radius: 6px; text-align: center; }
     .stat-value { font-size: 1.5em; font-weight: bold; color: #007bff; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #dee2e6; padding: 10px; text-align: center; }
     th { background-color: #007bff; color: white; }
-    input[type="number"] { width: 90%; padding: 6px; box-sizing: border-box; }
+    input[type="number"], input[type="text"], input[type="password"] { width: 95%; padding: 6px; box-sizing: border-box; }
     button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; }
     button:hover { background: #218838; }
+    button:disabled { background: #6c757d; cursor: not-allowed; }
+    .status-msg { margin-top: 10px; font-weight: bold; padding: 10px; border-radius: 4px; display: none; }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .config-sec { background: #fff3cd; border: 1px solid #ffeeba; padding: 15px; border-radius: 6px; margin-bottom: 15px; }
   </style>
 </head>
 <body>
@@ -24,14 +29,13 @@
   <!-- 前台展示 -->
   <div class="card">
     <h2>⚡ 前台 - 電費用量統計</h2>
-    
     <h3>總電表概況 (單價：<span id="displayUnitPrice">0</span> 元/度)</h3>
     <div class="grid">
       <div class="stat-box"><div>總使用度數</div><div class="stat-value"><span id="mainUsage">0</span> 度</div></div>
       <div class="stat-box"><div>總電費金額</div><div class="stat-value">$ <span id="mainAmount">0</span></div></div>
     </div>
 
-    <h3>各套房用量與明細</h3>
+    <h3>各套房用量明細</h3>
     <table>
       <thead>
         <tr>
@@ -46,9 +50,24 @@
     </table>
   </div>
 
-  <!-- 後台輸入 -->
+  <!-- 後台與設定 -->
   <div class="card">
-    <h2>⚙️ 後台 - 抄表與設定錄入</h2>
+    <h2>⚙️ 後台 - 抄表與 API 儲存</h2>
+    
+    <!-- GitHub API 連線設定 -->
+    <div class="config-sec">
+      <h3 style="margin-top:0;">🔗 GitHub 儲存庫同步設定</h3>
+      <div class="grid">
+        <div><label>帳號 (Owner):</label><input type="text" id="cfgOwner" placeholder="例如: your-username"></div>
+        <div><label>專案 (Repo):</label><input type="text" id="cfgRepo" placeholder="例如: electricity-system"></div>
+        <div><label>分支 (Branch):</label><input type="text" id="cfgBranch" value="main"></div>
+      </div>
+      <p style="margin-bottom:5px;"><label>Personal Access Token (PAT):</label></p>
+      <input type="password" id="cfgToken" placeholder="ghp_xxxxxxxxxxxxxx">
+      <br><br>
+      <button type="button" style="background:#17a2b8;" onclick="loadDataFromGitHub()">🔄 載入最新資料</button>
+    </div>
+
     <form id="meterForm">
       <p>
         <label><strong>台電標準單價 (元/度)：</strong></label>
@@ -62,7 +81,7 @@
       </div>
 
       <h3>各分電表讀數</h3>
-      <table id="adminTable">
+      <table>
         <thead>
           <tr>
             <th>房號</th>
@@ -73,73 +92,126 @@
         <tbody id="adminTableBody"></tbody>
       </table>
       <br>
-      <button type="button" onclick="calculateAndRender()">儲存並更新前台</button>
+      <button type="button" id="saveBtn" onclick="saveDataToGitHub()">💾 儲存並 Commit 到 GitHub</button>
+      <div id="statusMsg" class="status-msg"></div>
     </form>
   </div>
 
   <script>
-    // 預設資料 (初始化)
-    let db = {
-      unitPrice: 5.0,
-      mainMeter: { previous: 10000, current: 11200 },
-      rooms: [
-        { id: "101", name: "101 房", previous: 1000, current: 1150 },
-        { id: "102", name: "102 房", previous: 1500, current: 1720 },
-        { id: "103", name: "103 房", previous: 800, current: 930 }
-      ]
+    let currentData = null;
+    let fileSha = ""; // GitHub 修改檔案時必須帶上的 SHA 驗證碼
+
+    // 文字 Base64 編解碼 (支援 UTF-8 中文字串)
+    function toBase64(str) {
+      const bytes = new TextEncoder().encode(str);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
+    }
+
+    function fromBase64(str) {
+      const binary = atob(str.replace(/\n/g, ''));
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return new TextDecoder().decode(bytes);
+    }
+
+    // 初始化：載入本地紀錄的設定
+    window.onload = () => {
+      document.getElementById('cfgOwner').value = localStorage.getItem('gh_owner') || '';
+      document.getElementById('cfgRepo').value = localStorage.getItem('gh_repo') || '';
+      document.getElementById('cfgBranch').value = localStorage.getItem('gh_branch') || 'main';
+      document.getElementById('cfgToken').value = localStorage.getItem('gh_token') || '';
+
+      if (localStorage.getItem('gh_owner') && localStorage.getItem('gh_token')) {
+        loadDataFromGitHub();
+      }
     };
 
-    // 初始化頁面
-    function init() {
-      // 後台表單填入預設值
-      document.getElementById('inputUnitPrice').value = db.unitPrice;
-      document.getElementById('mainPrev').value = db.mainMeter.previous;
-      document.getElementById('mainCurr').value = db.mainMeter.current;
+    // 儲存 GitHub 設定至 LocalStorage
+    function saveConfig() {
+      localStorage.setItem('gh_owner', document.getElementById('cfgOwner').value.trim());
+      localStorage.setItem('gh_repo', document.getElementById('cfgRepo').value.trim());
+      localStorage.setItem('gh_branch', document.getElementById('cfgBranch').value.trim());
+      localStorage.setItem('gh_token', document.getElementById('cfgToken').value.trim());
+    }
 
+    function showStatus(text, isError = false) {
+      const msg = document.getElementById('statusMsg');
+      msg.innerText = text;
+      msg.className = 'status-msg ' + (isError ? 'error' : 'success');
+      msg.style.display = 'block';
+    }
+
+    // 從 GitHub API 取得 data.json
+    async function loadDataFromGitHub() {
+      saveConfig();
+      const owner = document.getElementById('cfgOwner').value.trim();
+      const repo = document.getElementById('cfgRepo').value.trim();
+      const branch = document.getElementById('cfgBranch').value.trim();
+      const token = document.getElementById('cfgToken').value.trim();
+
+      if (!owner || !repo) {
+        showStatus("請先填寫 GitHub 帳號與專案名稱", true);
+        return;
+      }
+
+      showStatus("讀取資料中...");
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/data.json?ref=${branch}`;
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(`HTTP ${res.status}: 讀取失敗`);
+        
+        const fileData = await res.json();
+        fileSha = fileData.sha; // 記錄當前檔案 SHA
+        const jsonText = fromBase64(fileData.content);
+        currentData = JSON.parse(jsonText);
+
+        renderUI();
+        showStatus("資料已順利從 GitHub 載入！");
+      } catch (err) {
+        showStatus(err.message, true);
+      }
+    }
+
+    // 渲染 UI
+    function renderUI() {
+      if (!currentData) return;
+
+      document.getElementById('inputUnitPrice').value = currentData.unitPrice;
+      document.getElementById('mainPrev').value = currentData.mainMeter.previous;
+      document.getElementById('mainCurr').value = currentData.mainMeter.current;
+
+      // 後台表格
       const adminBody = document.getElementById('adminTableBody');
       adminBody.innerHTML = '';
-      db.rooms.forEach((room, index) => {
+      currentData.rooms.forEach((room, i) => {
         adminBody.innerHTML += `
           <tr>
             <td>${room.name}</td>
-            <td><input type="number" id="roomPrev_${index}" value="${room.previous}"></td>
-            <td><input type="number" id="roomCurr_${index}" value="${room.current}"></td>
+            <td><input type="number" id="roomPrev_${i}" value="${room.previous}"></td>
+            <td><input type="number" id="roomCurr_${i}" value="${room.current}"></td>
           </tr>
         `;
       });
 
-      calculateAndRender();
-    }
-
-    // 計算邏輯與渲染
-    function calculateAndRender() {
-      // 1. 從後台讀取輸入值
-      db.unitPrice = parseFloat(document.getElementById('inputUnitPrice').value) || 0;
-      db.mainMeter.previous = parseFloat(document.getElementById('mainPrev').value) || 0;
-      db.mainMeter.current = parseFloat(document.getElementById('mainCurr').value) || 0;
-
-      db.rooms.forEach((room, index) => {
-        room.previous = parseFloat(document.getElementById(`roomPrev_${index}`).value) || 0;
-        room.current = parseFloat(document.getElementById(`roomCurr_${index}`).value) || 0;
-      });
-
-      // 2. 計算總電表
-      const mainUsage = db.mainMeter.current - db.mainMeter.previous;
-      const mainAmount = mainUsage * db.unitPrice;
-
-      // 3. 更新前台 UI - 總電表
-      document.getElementById('displayUnitPrice').innerText = db.unitPrice;
+      // 前台數據與表格
+      const mainUsage = currentData.mainMeter.current - currentData.mainMeter.previous;
+      document.getElementById('displayUnitPrice').innerText = currentData.unitPrice;
       document.getElementById('mainUsage').innerText = mainUsage >= 0 ? mainUsage : 0;
-      document.getElementById('mainAmount').innerText = mainAmount >= 0 ? mainAmount.toFixed(0) : 0;
+      document.getElementById('mainAmount').innerText = (mainUsage * currentData.unitPrice).toFixed(0);
 
-      // 4. 計算並更新前台 UI - 各套房
       const tenantBody = document.getElementById('tenantTableBody');
       tenantBody.innerHTML = '';
-
-      db.rooms.forEach(room => {
+      currentData.rooms.forEach(room => {
         const usage = room.current - room.previous;
-        const amount = usage * db.unitPrice;
-
+        const amount = usage * currentData.unitPrice;
         tenantBody.innerHTML += `
           <tr>
             <td>${room.name}</td>
@@ -152,7 +224,71 @@
       });
     }
 
-    window.onload = init;
+    // 將更新後的 JSON 直接 Commit 回 GitHub
+    async function saveDataToGitHub() {
+      saveConfig();
+      const owner = document.getElementById('cfgOwner').value.trim();
+      const repo = document.getElementById('cfgRepo').value.trim();
+      const branch = document.getElementById('cfgBranch').value.trim();
+      const token = document.getElementById('cfgToken').value.trim();
+
+      if (!token) {
+        showStatus("寫入 GitHub 需要填寫 Personal Access Token (PAT)", true);
+        return;
+      }
+
+      // 1. 組裝 UI 上的數據
+      const updatedData = {
+        unitPrice: parseFloat(document.getElementById('inputUnitPrice').value) || 0,
+        mainMeter: {
+          previous: parseFloat(document.getElementById('mainPrev').value) || 0,
+          current: parseFloat(document.getElementById('mainCurr').value) || 0
+        },
+        rooms: currentData.rooms.map((room, i) => ({
+          ...room,
+          previous: parseFloat(document.getElementById(`roomPrev_${i}`).value) || 0,
+          current: parseFloat(document.getElementById(`roomCurr_${i}`).value) || 0
+        }))
+      };
+
+      showStatus("正在寫入 GitHub...");
+      document.getElementById('saveBtn').disabled = true;
+
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/data.json`;
+      const bodyPayload = {
+        message: "Update electricity usage data via Admin Dashboard",
+        content: toBase64(JSON.stringify(updatedData, null, 2)),
+        sha: fileSha,
+        branch: branch
+      };
+
+      try {
+        const res = await fetch(url, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.v3+json'
+          },
+          body: JSON.stringify(bodyPayload)
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          throw new Error(`GitHub 寫入失敗: ${errData.message}`);
+        }
+
+        const resData = await res.json();
+        fileSha = resData.content.sha; // 更新最新的 SHA
+        currentData = updatedData;
+        renderUI();
+        showStatus("✅ 成功更新至 GitHub！前台數據已同步。");
+      } catch (err) {
+        showStatus(err.message, true);
+      } finally {
+        document.getElementById('saveBtn').disabled = false;
+      }
+    }
   </script>
 </body>
 </html>

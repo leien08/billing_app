@@ -1,0 +1,9 @@
+{
+  "unitPrice": 5.0,
+  "mainMeter": { "previous": 10000, "current": 11200 },
+  "rooms": [
+    { "id": "101", "name": "101 房", "previous": 1000, "current": 1150 },
+    { "id": "102", "name": "102 房", "previous": 1500, "current": 1720 },
+    { "id": "103", "name": "103 房", "previous": 800, "current": 930 }
+  ]
+}
