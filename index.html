@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>套房電費管理系統</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; background: #f8f9fa; }
+    .card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    h2 { margin-top: 0; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 8px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .stat-box { background: #e9ecef; padding: 15px; border-radius: 6px; text-align: center; }
+    .stat-value { font-size: 1.5em; font-weight: bold; color: #007bff; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #dee2e6; padding: 10px; text-align: center; }
+    th { background-color: #007bff; color: white; }
+    input[type="number"] { width: 90%; padding: 6px; box-sizing: border-box; }
+    button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 1em; }
+    button:hover { background: #218838; }
+  </style>
+</head>
+<body>
+
+  <!-- 前台展示 -->
+  <div class="card">
+    <h2>⚡ 前台 - 電費用量統計</h2>
+    
+    <h3>總電表概況 (單價：<span id="displayUnitPrice">0</span> 元/度)</h3>
+    <div class="grid">
+      <div class="stat-box"><div>總使用度數</div><div class="stat-value"><span id="mainUsage">0</span> 度</div></div>
+      <div class="stat-box"><div>總電費金額</div><div class="stat-value">$ <span id="mainAmount">0</span></div></div>
+    </div>
+
+    <h3>各套房用量與明細</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>房號</th>
+          <th>上次度數</th>
+          <th>本次度數</th>
+          <th>使用度數</th>
+          <th>應繳金額</th>
+        </tr>
+      </thead>
+      <tbody id="tenantTableBody"></tbody>
+    </table>
+  </div>
+
+  <!-- 後台輸入 -->
+  <div class="card">
+    <h2>⚙️ 後台 - 抄表與設定錄入</h2>
+    <form id="meterForm">
+      <p>
+        <label><strong>台電標準單價 (元/度)：</strong></label>
+        <input type="number" step="0.1" id="inputUnitPrice" required>
+      </p>
+
+      <h3>總電表讀數</h3>
+      <div class="grid">
+        <div><label>上次度數：</label><input type="number" id="mainPrev" required></div>
+        <div><label>本次度數：</label><input type="number" id="mainCurr" required></div>
+      </div>
+
+      <h3>各分電表讀數</h3>
+      <table id="adminTable">
+        <thead>
+          <tr>
+            <th>房號</th>
+            <th>上次度數</th>
+            <th>本次度數</th>
+          </tr>
+        </thead>
+        <tbody id="adminTableBody"></tbody>
+      </table>
+      <br>
+      <button type="button" onclick="calculateAndRender()">儲存並更新前台</button>
+    </form>
+  </div>
+
+  <script>
+    // 預設資料 (初始化)
+    let db = {
+      unitPrice: 5.0,
+      mainMeter: { previous: 10000, current: 11200 },
+      rooms: [
+        { id: "101", name: "101 房", previous: 1000, current: 1150 },
+        { id: "102", name: "102 房", previous: 1500, current: 1720 },
+        { id: "103", name: "103 房", previous: 800, current: 930 }
+      ]
+    };
+
+    // 初始化頁面
+    function init() {
+      // 後台表單填入預設值
+      document.getElementById('inputUnitPrice').value = db.unitPrice;
+      document.getElementById('mainPrev').value = db.mainMeter.previous;
+      document.getElementById('mainCurr').value = db.mainMeter.current;
+
+      const adminBody = document.getElementById('adminTableBody');
+      adminBody.innerHTML = '';
+      db.rooms.forEach((room, index) => {
+        adminBody.innerHTML += `
+          <tr>
+            <td>${room.name}</td>
+            <td><input type="number" id="roomPrev_${index}" value="${room.previous}"></td>
+            <td><input type="number" id="roomCurr_${index}" value="${room.current}"></td>
+          </tr>
+        `;
+      });
+
+      calculateAndRender();
+    }
+
+    // 計算邏輯與渲染
+    function calculateAndRender() {
+      // 1. 從後台讀取輸入值
+      db.unitPrice = parseFloat(document.getElementById('inputUnitPrice').value) || 0;
+      db.mainMeter.previous = parseFloat(document.getElementById('mainPrev').value) || 0;
+      db.mainMeter.current = parseFloat(document.getElementById('mainCurr').value) || 0;
+
+      db.rooms.forEach((room, index) => {
+        room.previous = parseFloat(document.getElementById(`roomPrev_${index}`).value) || 0;
+        room.current = parseFloat(document.getElementById(`roomCurr_${index}`).value) || 0;
+      });
+
+      // 2. 計算總電表
+      const mainUsage = db.mainMeter.current - db.mainMeter.previous;
+      const mainAmount = mainUsage * db.unitPrice;
+
+      // 3. 更新前台 UI - 總電表
+      document.getElementById('displayUnitPrice').innerText = db.unitPrice;
+      document.getElementById('mainUsage').innerText = mainUsage >= 0 ? mainUsage : 0;
+      document.getElementById('mainAmount').innerText = mainAmount >= 0 ? mainAmount.toFixed(0) : 0;
+
+      // 4. 計算並更新前台 UI - 各套房
+      const tenantBody = document.getElementById('tenantTableBody');
+      tenantBody.innerHTML = '';
+
+      db.rooms.forEach(room => {
+        const usage = room.current - room.previous;
+        const amount = usage * db.unitPrice;
+
+        tenantBody.innerHTML += `
+          <tr>
+            <td>${room.name}</td>
+            <td>${room.previous}</td>
+            <td>${room.current}</td>
+            <td>${usage >= 0 ? usage : 0} 度</td>
+            <td><strong>$ ${amount >= 0 ? amount.toFixed(0) : 0}</strong></td>
+          </tr>
+        `;
+      });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
