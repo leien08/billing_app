@@ -1,8 +1,8 @@
 {
   "unitPrice": 1.32,
   "mainMeter": {
-    "previous": 10000,
-    "current": 11200
+    "previous": 100,
+    "current": 593
   },
   "rooms": [
     {
