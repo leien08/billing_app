@@ -42,7 +42,6 @@ jobs:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         # 使用萬用字元搜尋，或直接寫出完整路徑，例如 'billing_app/package-lock.json'
-        cache-dependency-path: '**/package-lock.json'
         cache-dependency-path: './package-lock.json'
 
     - name: npm install, build, and test
