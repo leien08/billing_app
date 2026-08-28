@@ -3,8 +3,8 @@
   "meterReadingDate": "2026-08-28",
   "unitPrice": 3.2,
   "mainMeter": {
-    "previous": 100,
-    "current": 593
+    "previous": 0,
+    "current": 0
   },
   "water": {
     "totalAmount": 0,
