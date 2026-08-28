@@ -6,22 +6,34 @@
   },
   "rooms": [
     {
-      "id": "101",
+      "id": "101 房",
       "name": "101 房",
       "previous": 1000,
       "current": 1150
     },
     {
-      "id": "102",
+      "id": "102 房",
       "name": "102 房",
       "previous": 1500,
       "current": 1720
     },
     {
-      "id": "103",
+      "id": "103 房",
       "name": "103 房",
       "previous": 800,
       "current": 930
+    },
+    {
+      "id": "103",
+      "name": "103",
+      "previous": 53,
+      "current": 102
+    },
+    {
+      "id": "新房號",
+      "name": "新房號",
+      "previous": 0,
+      "current": 0
     }
   ]
 }
