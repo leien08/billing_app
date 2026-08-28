@@ -1,13 +1,13 @@
 {
   "adminPasswordHash": "562177b8ef25766c2037cad8f298e718166df9e4840e402cbba500d85f1919bd",
   "meterReadingDate": "2026-08-28",
-  "waterReadingDate": "2026-08-28",
   "unitPrice": 3.2,
   "mainMeter": {
     "previous": 0,
     "current": 0
   },
   "water": {
+    "readingDate": "",
     "totalAmount": 0,
     "peopleCount": 1
   },
@@ -141,6 +141,12 @@
     {
       "id": "4-4",
       "name": "4-4",
+      "previous": 0,
+      "current": 0
+    },
+    {
+      "id": "1-8",
+      "name": "1-8",
       "previous": 0,
       "current": 0
     }
