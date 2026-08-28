@@ -1,15 +1,21 @@
 {
+  "adminPasswordHash": "562177b8ef25766c2037cad8f298e718166df9e4840e402cbba500d85f1919bd",
+  "meterReadingDate": "2026-08-28",
   "unitPrice": 3.2,
   "mainMeter": {
     "previous": 100,
     "current": 593
   },
+  "water": {
+    "totalAmount": 0,
+    "peopleCount": 1
+  },
   "rooms": [
     {
       "id": "101 房",
       "name": "101 房",
-      "previous": 1000,
-      "current": 1150
+      "previous": 0,
+      "current": 10
     },
     {
       "id": "102 房",
@@ -41,6 +47,5 @@
       "previous": 0,
       "current": 0
     }
-  ],
-  "adminPasswordHash": "562177b8ef25766c2037cad8f298e718166df9e4840e402cbba500d85f1919bd"
+  ]
 }
