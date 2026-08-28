@@ -24,14 +24,20 @@
       "current": 930
     },
     {
-      "id": "103",
-      "name": "103",
+      "id": "104",
+      "name": "104",
       "previous": 53,
       "current": 102
     },
     {
-      "id": "新房號",
-      "name": "新房號",
+      "id": "105",
+      "name": "105",
+      "previous": 0,
+      "current": 0
+    },
+    {
+      "id": "106",
+      "name": "106",
       "previous": 0,
       "current": 0
     }
