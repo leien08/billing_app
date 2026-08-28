@@ -12,38 +12,50 @@
   },
   "rooms": [
     {
-      "id": "101 房",
-      "name": "101 房",
+      "id": "1-4",
+      "name": "1-4",
       "previous": 0,
       "current": 10
     },
     {
-      "id": "102 房",
-      "name": "102 房",
+      "id": "1-5",
+      "name": "1-5",
       "previous": 0,
       "current": 10
     },
     {
-      "id": "103 房",
-      "name": "103 房",
+      "id": "1-6",
+      "name": "1-6",
       "previous": 0,
       "current": 0
     },
     {
-      "id": "104",
-      "name": "104",
+      "id": "1-7",
+      "name": "1-7",
       "previous": 0,
       "current": 5
     },
     {
-      "id": "105",
-      "name": "105",
+      "id": "2-1",
+      "name": "2-1",
       "previous": 0,
       "current": 0
     },
     {
-      "id": "106",
-      "name": "106",
+      "id": "2-2",
+      "name": "2-2",
+      "previous": 0,
+      "current": 0
+    },
+    {
+      "id": "2-3",
+      "name": "2-3",
+      "previous": 0,
+      "current": 0
+    },
+    {
+      "id": "2-4",
+      "name": "2-4",
       "previous": 0,
       "current": 0
     }
