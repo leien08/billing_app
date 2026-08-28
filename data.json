@@ -8,7 +8,7 @@
     "current": 0
   },
   "water": {
-    "totalAmount": 50,
+    "totalAmount": 500,
     "peopleCount": 2
   },
   "rooms": [
