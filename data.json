@@ -41,5 +41,6 @@
       "previous": 0,
       "current": 0
     }
-  ]
+  ],
+  "adminPasswordHash": "562177b8ef25766c2037cad8f298e718166df9e4840e402cbba500d85f1919bd"
 }
